@@ -1,5 +1,10 @@
 import { createApp } from 'vue'
-import './style.css'
+import ElementPlusX from 'vue-element-plus-x'
 import App from './App.vue'
+// import './style.css'
+import './assets/styles/index.ts'
+import 'virtual:uno.css'
 
-createApp(App).mount('#app')
+const app = createApp(App)
+app.use(ElementPlusX)
+app.mount('#app')
