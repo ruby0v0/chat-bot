@@ -1,59 +1,85 @@
 <script setup lang="ts">
 import type { BubbleListItemProps, BubbleListProps } from 'vue-element-plus-x/types/BubbleList'
 import { onMounted, ref } from 'vue'
+import { useLoading } from './hooks'
 
-interface ContextType extends BubbleListItemProps {
+interface MessageType extends BubbleListItemProps {
   key: number
   role: 'user' | 'ai'
 }
 
-const prompt = ref('')
+type MessageConfig = Omit<MessageType, 'key' | 'content'>
 
-const contexts = ref<BubbleListProps<ContextType>['list']>()
-
-const ai = {
-  avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+const baseConfig: Partial<MessageConfig> = {
+  avatarSize: '24px',
+  avatarGap: '10px',
+  shape: 'corner',
 }
 
-const user = {
+const aiConfig: MessageConfig = {
+  role: 'ai',
+  avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+  placement: 'start',
+  variant: 'filled',
+}
+
+const userConfig: MessageConfig = {
+  role: 'user',
   avatar: 'https://avatars.githubusercontent.com/u/76239030?v=4',
+  placement: 'end',
+  variant: 'outlined',
+}
+
+const [loading, setLoading] = useLoading()
+
+const question = ref('')
+
+const messages = ref<BubbleListProps<MessageType>['list']>([])
+
+async function handleSubmit() {
+  messages.value?.push({
+    ...baseConfig,
+    ...userConfig,
+    key: messages.value?.length + 1 || 1,
+    content: question.value,
+  })
+
+  const _question = question.value
+  question.value = ''
+
+  try {
+    setLoading(true)
+    const raw = await fetch('/api/ask', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        question: JSON.stringify(_question),
+      }),
+    })
+
+    const res = await raw.json()
+    messages.value?.push({
+      ...baseConfig,
+      ...aiConfig,
+      key: messages.value?.length + 1 || 1,
+      content: res.answer,
+      typing: true,
+    })
+  }
+  finally {
+    setLoading(false)
+  }
 }
 
 onMounted(() => {
-  const config: Partial<ContextType> = {
-    avatarSize: '24px',
-    avatarGap: '10px',
-    shape: 'corner',
-  }
-
-  contexts.value = [
+  messages.value = [
     {
-      ...config,
+      ...baseConfig,
+      ...aiConfig,
       key: 1,
-      role: 'ai',
       content: '我是 AI 小助手，请问有什么可以帮到你的吗？',
-      placement: 'start',
-      avatar: ai.avatar,
-      variant: 'filled',
-    },
-    {
-      ...config,
-      key: 2,
-      role: 'user',
-      content: '你好',
-      placement: 'end',
-      avatar: user.avatar,
-      variant: 'outlined',
-    },
-    {
-      ...config,
-      key: 3,
-      role: 'ai',
-      content: '你好呀！',
-      placement: 'start',
-      avatar: ai.avatar,
-      variant: 'filled',
-      typing: true,
     },
   ]
 })
@@ -65,10 +91,15 @@ onMounted(() => {
       AI 小助手
     </div>
     <div class="flex-1 overflow-auto p4">
-      <BubbleList :list="contexts" />
+      <BubbleList :list="messages" />
     </div>
     <div class="border-gray-300 border-t-dashed p4">
-      <Sender v-model="prompt" />
+      <Sender
+        v-model.trim="question"
+        clearable
+        :loading="loading"
+        @submit="handleSubmit"
+      />
     </div>
   </div>
 </template>
