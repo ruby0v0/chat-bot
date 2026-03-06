@@ -137,16 +137,16 @@ async function getGeoId(location) {
 
 	const params = {
 		location,
+		key: WEATHER_API_KEY,
 	};
 
-	const url = `${GEO_API_URL}?${buildQueryString(params)}`;
+	const url = `${WEATHER_API_HOST}/geo/v2/city/lookup?${buildQueryString(params)}`;
 
 	try {
 		const response = await fetch(url, {
 			method: 'GET',
 			headers: {
 				'Content-Type': 'application/json',
-				Authorization: `Bearer ${WEATHER_API_KEY}`,
 			},
 		});
 
@@ -172,6 +172,7 @@ async function getGeoId(location) {
 			lon: city.lon,
 		};
 	} catch (error) {
+		console.error('获取城市信息失败：', error.message);
 		if (error.name === 'AbortError') {
 			throw new Error('和风天气 API 请求超时');
 		}
@@ -179,98 +180,6 @@ async function getGeoId(location) {
 			throw error;
 		}
 		throw new Error(`获取城市信息失败：${error.message}`);
-	}
-}
-
-/**
- * 获取实时天气
- * @param {string} location - 城市名称或城市 ID
- * @param {Object} options - 查询选项
- * @param {string} [options.unit='c'] - 温度单位：c=摄氏度，f=华氏度
- * @returns {Promise<{
- *   temp: string,
- *   feelsLike: string,
- *   icon: string,
- *   text: string,
- *   windDir: string,
- *   windScale: string,
- *   windSpeed: string,
- *   humidity: string,
- *   precip: string,
- *   pressure: string,
- *   vis: string,
- *   updateTime: string
- * }>}
- */
-async function getCurrentWeather(location, options = {}) {
-	const { unit = 'c' } = options;
-
-	if (!location || location.trim() === '') {
-		throw new Error('城市名称不能为空');
-	}
-
-	let cityId = location;
-
-	if (!/^\d+$/.test(location)) {
-		const geoResult = await getGeoId(location);
-		cityId = geoResult.id;
-	}
-
-	const params = {
-		location: cityId,
-		unit,
-	};
-
-	const url = `${WEATHER_API_HOST}/v7/weather/now?${buildQueryString(params)}`;
-
-	try {
-		const response = await fetch(url, {
-			method: 'GET',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${WEATHER_API_KEY}`,
-			},
-		});
-
-		if (!response.ok) {
-			throw new Error(`HTTP 错误：${response.status} ${response.statusText}`);
-		}
-
-		const data = await response.json();
-
-		if (data.code !== '200') {
-			throw new Error(`和风天气 API 错误：${data.code}`);
-		}
-
-		if (!data.now) {
-			throw new Error('天气数据为空');
-		}
-
-		const weather = data.now;
-
-		return {
-			temp: weather.temp,
-			feelsLike: weather.feelsLike,
-			icon: weather.icon,
-			text: weather.text,
-			windDir: weather.windDir,
-			windScale: weather.windScale,
-			windSpeed: weather.windSpeed,
-			humidity: weather.humidity,
-			precip: weather.precip,
-			pressure: weather.pressure,
-			vis: weather.vis,
-			updateTime: data.updateTime,
-			location: data.fxLink,
-		};
-	} catch (error) {
-		if (error.name === 'AbortError') {
-			throw new Error('和风天气 API 请求超时');
-		}
-		if (error.message.startsWith('HTTP 错误')) {
-			throw error;
-		}
-		throw new Error(`获取天气失败：${error.message}`);
 	}
 }
 
@@ -316,8 +225,8 @@ async function getForecast(location, options = {}) {
 		throw new Error('城市名称不能为空');
 	}
 
-	if (days < 1 || days > 7) {
-		throw new Error('预报天数必须在 1-7 天之间');
+	if (![3, 7, 10, 15, 30].includes(days)) {
+		throw new Error('天数参数错误，只支持 3、7、10、15、30天');
 	}
 
 	let cityId = location;
@@ -329,6 +238,7 @@ async function getForecast(location, options = {}) {
 
 	const params = {
 		location: cityId,
+		key: WEATHER_API_KEY,
 	};
 
 	const url = `${WEATHER_API_HOST}/v7/weather/${days}d?${buildQueryString(params)}`;
@@ -338,7 +248,6 @@ async function getForecast(location, options = {}) {
 			method: 'GET',
 			headers: {
 				'Content-Type': 'application/json',
-				Authorization: `Bearer ${WEATHER_API_KEY}`,
 			},
 		});
 
@@ -366,6 +275,7 @@ async function getForecast(location, options = {}) {
 			},
 		};
 	} catch (error) {
+		console.error('获取天气预报失败：', error.message);
 		if (error.name === 'AbortError') {
 			throw new Error('和风天气 API 请求超时');
 		}
@@ -380,37 +290,9 @@ async function getForecast(location, options = {}) {
  * 获取未来指定日期的天气预报
  * @param {string} location - 城市名称或城市 ID
  * @param {string} date - 日期（支持：明天、后天、tomorrow、day after tomorrow、YYYY-MM-DD、YYYYMMDD）
- * @returns {Promise<{
- *   weather: {
- *     fxDate: string,
- *     sunrise: string,
- *     sunset: string,
- *     moonrise: string,
- *     moonset: string,
- *     moonPhase: string,
- *     moonPhaseIcon: string,
- *     tempMax: string,
- *     tempMin: string,
- *     iconDay: string,
- *     textDay: string,
- *     iconNight: string,
- *     textNight: string,
- *     windDir: string,
- *     windScaleDay: string,
- *     windScaleNight: string,
- *     windSpeedDay: string,
- *     windSpeedNight: string,
- *     uvIndex: string,
- *     humidity: string,
- *     precip: string,
- *     pressure: string,
- *     vis: string,
- *     cloud: string,
- *   },
- *   location: { id: string, name: string, lat: string, lon: string }
- * }>}
+ * @returns {Promise<string>} - 返回天气描述字符串
  */
-async function getFutureWeatherByDate(location, date) {
+async function getWeather(location, date) {
 	let targetDate;
 
 	try {
@@ -428,39 +310,36 @@ async function getFutureWeatherByDate(location, date) {
 	const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
 	if (diffDays < 0) {
-		throw new Error('该函数只支持查询未来日期');
+		throw new Error('只支持查询未来日期');
 	}
 
-	if (diffDays > 7) {
-		throw new Error('只支持查询未来 7 天内的天气');
+	if (diffDays > 30) {
+		throw new Error('只支持查询未来 30 天内的天气');
 	}
-
-	const forecastDays = diffDays + 1;
 
 	try {
-		const result = await getForecast(location, { days: forecastDays });
+		const weathers = await getForecast(location, { days: 30 });
 
-		const targetWeather = result.forecasts.find((forecast) => {
+		const targetWeather = weathers.forecasts.find((forecast) => {
 			const forecastDate = forecast.fxDate.replace(/-/g, '');
 			return forecastDate === targetDate;
 		});
 
 		if (!targetWeather) {
-			throw new Error(`未找到 ${date} 的天气预报数据`);
+			throw new Error(`未找到 ${targetDate} 的天气预报数据`);
 		}
 
-		return {
-			weather: targetWeather,
-			location: result.location,
-		};
+		const result = `📍 ${location}（${targetDate}）天气：${targetWeather.textDay}，气温 ${targetWeather.tempMin}°C ~ ${targetWeather.tempMax}°C`;
+		console.log('天气查询成功:', result);
+		return result;
 	} catch (error) {
+		console.error('获取未来天气失败：', error.message);
 		throw new Error(`获取未来天气失败：${error.message}`);
 	}
 }
 
 module.exports = {
 	getGeoId,
-	getCurrentWeather,
 	getForecast,
-	getFutureWeatherByDate,
+	getWeather,
 };

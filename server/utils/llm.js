@@ -22,13 +22,12 @@ async function request(url, options = {}) {
 		clearTimeout(timer);
 		if (error.name === 'AbortError') {
 			throw new Error('请求超时，请稍后再试');
-		} else {
-			throw error;
 		}
+		throw error;
 	}
 }
 
-async function talkToLLM(prompt, stream = false, cb) {
+async function callLLM(prompt, stream = false, cb) {
 	try {
 		const raw = await request(ENDPOINT, {
 			method: 'POST',
@@ -47,10 +46,11 @@ async function talkToLLM(prompt, stream = false, cb) {
 		}
 
 		if (!stream) {
-			return await raw.json();
+			const data = await raw.json();
+			return data.response;
 		} else {
 			const reader = raw.body.getReader();
-			const decoder = new TextDecoder();
+			const decoder = new TextDecoder('utf-8');
 			let answer = '';
 
 			while (true) {
@@ -82,5 +82,5 @@ async function talkToLLM(prompt, stream = false, cb) {
 }
 
 module.exports = {
-	talkToLLM,
+	callLLM,
 };

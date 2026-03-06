@@ -10,7 +10,7 @@ const [loading, setLoading] = useLoading()
 
 const historyModalRef = useTemplateRef('historyModal')
 
-const question = ref('')
+const question = ref('杭州明天天气怎么样？')
 
 const answer = ref('')
 
