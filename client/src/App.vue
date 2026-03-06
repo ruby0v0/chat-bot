@@ -34,6 +34,8 @@ const [loading, setLoading] = useLoading()
 
 const question = ref('')
 
+const answer = ref('')
+
 const messages = ref<BubbleListProps<MessageType>['list']>([])
 
 async function handleSubmit() {
@@ -59,13 +61,50 @@ async function handleSubmit() {
       }),
     })
 
-    const res = await raw.json()
+    const reader = raw.body?.getReader()
+    const decoder = new TextDecoder()
+
+    if (!reader) {
+      throw new Error('No reader')
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
+      }
+      const chunk = decoder.decode(value, { stream: true })
+      const lines = chunk.split('\n').filter(line => line.trim())
+
+      for (const line of lines) {
+        try {
+          const data = JSON.parse(line)
+          if (data.response) {
+            loading.value && setLoading(false)
+          }
+          answer.value += data.response
+        }
+        catch (error) {
+          console.error('JSON 解析失败：', error)
+        }
+      }
+    }
+
     messages.value?.push({
       ...baseConfig,
       ...aiConfig,
       key: messages.value?.length + 1 || 1,
-      content: res.answer,
+      content: answer.value,
       typing: true,
+    })
+  }
+  catch (error) {
+    console.error(error)
+    messages.value?.push({
+      ...baseConfig,
+      ...aiConfig,
+      key: messages.value?.length + 1 || 1,
+      content: '我好像出现了点问题，请稍后再试',
     })
   }
   finally {
@@ -105,4 +144,5 @@ onMounted(() => {
 </template>
 
 <style scoped>
+
 </style>
