@@ -1,42 +1,24 @@
 <script setup lang="ts">
-import type { BubbleListItemProps, BubbleListProps } from 'vue-element-plus-x/types/BubbleList'
+import type { BubbleListProps } from 'vue-element-plus-x/types/BubbleList'
+import type { MessageType } from './types/global'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, ref } from 'vue'
 import { useLoading } from './hooks'
-
-interface MessageType extends BubbleListItemProps {
-  key: number
-  role: 'user' | 'ai'
-}
-
-type MessageConfig = Omit<MessageType, 'key' | 'content'>
-
-const baseConfig: Partial<MessageConfig> = {
-  avatarSize: '24px',
-  avatarGap: '10px',
-  shape: 'corner',
-}
-
-const aiConfig: MessageConfig = {
-  role: 'ai',
-  avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-  placement: 'start',
-  variant: 'filled',
-}
-
-const userConfig: MessageConfig = {
-  role: 'user',
-  avatar: 'https://avatars.githubusercontent.com/u/76239030?v=4',
-  placement: 'end',
-  variant: 'outlined',
-}
+import { aiConfig, baseConfig, userConfig } from './lib/config'
 
 const [loading, setLoading] = useLoading()
+
+const historyModalRef = useTemplateRef('historyModal')
 
 const question = ref('')
 
 const answer = ref('')
 
 const messages = ref<BubbleListProps<MessageType>['list']>([])
+
+function initMessage() {
+  messages.value = []
+}
 
 async function handleSubmit() {
   messages.value?.push({
@@ -108,19 +90,41 @@ async function handleSubmit() {
     })
   }
   finally {
+    answer.value = ''
     setLoading(false)
   }
 }
 
+function handleShowHistory() {
+  historyModalRef.value?.openModal()
+}
+
+async function handleClearHistory() {
+  try {
+    await ElMessageBox.confirm('确定要清除历史会话吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+
+    await fetch('/api/clear', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    initMessage()
+
+    ElMessage.success('操作成功')
+  }
+  catch (error) {
+    console.error(error)
+    ElMessage.error('操作失败')
+  }
+}
+
 onMounted(() => {
-  messages.value = [
-    {
-      ...baseConfig,
-      ...aiConfig,
-      key: 1,
-      content: '我是 AI 小助手，请问有什么可以帮到你的吗？',
-    },
-  ]
+  initMessage()
 })
 </script>
 
@@ -133,13 +137,24 @@ onMounted(() => {
       <BubbleList :list="messages" />
     </div>
     <div class="border-gray-300 border-t-dashed p4">
-      <Sender
-        v-model.trim="question"
-        clearable
-        :loading="loading"
-        @submit="handleSubmit"
-      />
+      <el-space w-full direction="vertical" alignment="stretch">
+        <div>
+          <el-button type="primary" @click="handleShowHistory">
+            查看历史会话
+          </el-button>
+          <el-button type="danger" @click="handleClearHistory">
+            清除历史会话
+          </el-button>
+        </div>
+        <Sender
+          v-model.trim="question"
+          clearable
+          :loading="loading"
+          @submit="handleSubmit"
+        />
+      </el-space>
     </div>
+    <HistoryModal ref="historyModal" />
   </div>
 </template>
 
