@@ -3,8 +3,6 @@ const crypto = require('crypto');
 const WEATHER_API_HOST = process.env.HEFENG_WEATHER_API_HOST;
 const WEATHER_API_KEY = process.env.HEFENG_WEATHER_API_KEY;
 
-const WEATHER_NOW_URL = 'https://devapi.qweather.com/v7/weather/now';
-const WEATHER_HISTORY_URL = 'https://devapi.qweather.com/v7/weather/history';
 // const GEO_API_URL = 'https://geoapi.qweather.com/v2/city/lookup';
 const GEO_API_URL = `${WEATHER_API_HOST}/geo/v2/city/lookup`;
 
