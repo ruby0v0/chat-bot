@@ -28,7 +28,7 @@ async function request(url, options = {}) {
 	}
 }
 
-async function callLLM(prompt, stream = false, cb) {
+async function callLLM(messages, stream = false, cb) {
 	try {
 		const raw = await request(ENDPOINT, {
 			method: 'POST',
@@ -38,12 +38,7 @@ async function callLLM(prompt, stream = false, cb) {
 			},
 			body: JSON.stringify({
 				model: MODEL,
-				messages: [
-					{
-						role: 'user',
-						content: prompt,
-					},
-				],
+				messages,
 				stream,
 			}),
 		});

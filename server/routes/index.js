@@ -19,21 +19,19 @@ router.post('/ask', async (req, res) => {
 	try {
 		const toolPrompt = generateToolPrompt(question);
 		let answer = '';
-		const raw = await callLLM(toolPrompt);
+		const raw = await callLLM([
+			...conversations,
+			{ role: 'user', content: toolPrompt },
+		]);
 
 		if (raw === '无函数调用') {
-			const prompt = [
-				'你是一个中文问答聊天机器人，请用中文回答问题。',
-				...conversations.map(
-					(item) =>
-						`${item.role === 'user' ? '用户' : '助手'}：${item.content}`,
-				),
-				`用户的问题：${question}`,
-			].join('\n');
-
-			answer = await callLLM(prompt, true, (data) => {
-				res.write(`${JSON.stringify({ response: data })}\n`);
-			});
+			answer = await callLLM(
+				[...conversations, { role: 'user', content: question }],
+				true,
+				(data) => {
+					res.write(`${JSON.stringify({ response: data })}\n`);
+				},
+			);
 		} else {
 			const tools = JSON.parse(raw);
 			const results = [];
@@ -50,7 +48,10 @@ router.post('/ask', async (req, res) => {
 						});
 					} else if (tool.function === 'translate') {
 						const { input } = tool.args;
-						const translation = await translate(input, { from: 'zh', to: 'en' });
+						const translation = await translate(input, {
+							from: 'zh',
+							to: 'en',
+						});
 						results.push({
 							function: tool.function,
 							args: tool.args,
@@ -75,9 +76,13 @@ router.post('/ask', async (req, res) => {
 			}
 
 			const answerPrompt = generateAnswerPrompt(question, results);
-			answer = await callLLM(answerPrompt, true, (data) => {
-				res.write(`${JSON.stringify({ response: data })}\n`);
-			});
+			answer = await callLLM(
+				[...conversations, { role: 'user', content: answerPrompt }],
+				true,
+				(data) => {
+					res.write(`${JSON.stringify({ response: data })}\n`);
+				},
+			);
 		}
 
 		conversations.push(
