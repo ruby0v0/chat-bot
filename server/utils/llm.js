@@ -1,5 +1,6 @@
 const ENDPOINT =
 	process.env.LLM_ENDPOINT || 'http://localhost:11434/api/generate';
+const API_KEY = process.env.LLM_API_KEY || '';
 const MODEL = process.env.LLM_MODEL || 'llama3';
 const TIMEOUT = process.env.LLM_TIMEOUT || 30_000;
 
@@ -33,10 +34,16 @@ async function callLLM(prompt, stream = false, cb) {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
+				Authorization: `Bearer ${API_KEY}`,
 			},
 			body: JSON.stringify({
 				model: MODEL,
-				prompt,
+				messages: [
+					{
+						role: 'user',
+						content: prompt,
+					},
+				],
 				stream,
 			}),
 		});
@@ -47,7 +54,7 @@ async function callLLM(prompt, stream = false, cb) {
 
 		if (!stream) {
 			const data = await raw.json();
-			return data.response;
+			return data.choices?.[0]?.message?.content;
 		} else {
 			const reader = raw.body.getReader();
 			const decoder = new TextDecoder('utf-8');
@@ -63,11 +70,22 @@ async function callLLM(prompt, stream = false, cb) {
 				const lines = chunk.split('\n').filter((line) => line.trim());
 
 				for (const line of lines) {
+					const raw = line.slice(6);
+
+					if (!line.startsWith('data:')) {
+						continue; 
+					}
+
+					if (raw === '[DONE]') {
+						break;
+					}
+
 					try {
-						const data = JSON.parse(line);
-						if (data.response) {
-							answer += data.response;
-							cb?.(data.response);
+						const data = JSON.parse(raw);
+						const chunk = data.choices?.[0]?.delta?.content;
+						if (chunk) {
+							answer += chunk;
+							cb?.(chunk);
 						}
 					} catch (error) {
 						console.error('JSON 解析失败：', error.message);

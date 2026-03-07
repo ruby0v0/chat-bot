@@ -34,3 +34,6 @@ coverage/
 
 # Express 可能产生的会话文件
 sessions/
+
+# 环境特定的文件
+.env
