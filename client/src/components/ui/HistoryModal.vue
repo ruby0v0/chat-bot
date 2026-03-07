@@ -63,7 +63,7 @@ watch(show, (value) => {
     :close-on-click-modal="false"
     :close-on-press-escape="false"
   >
-    <div class="px2 py4">
+    <div class="max-h-130 overflow-auto px2 py4">
       <BubbleList v-if="hasConversation" :list="messages" />
       <div v-else>
         <el-empty description="暂无数据" />
